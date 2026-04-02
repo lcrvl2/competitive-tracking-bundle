@@ -1,0 +1,628 @@
+{
+  "name": "Competitor Sitemap Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-16, 32],
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "sitemap list",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2057926010,
+          "mode": "list",
+          "cachedResultName": "Configuration",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=2057926010"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [272, 32],
+      "id": "get-domains",
+      "name": "Get Domains",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [432, 32],
+      "id": "loop-over-items",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.Sitemap }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [656, 32],
+      "id": "get-sitemap-index",
+      "name": "Get Sitemap Index",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [880, 32],
+      "id": "parse-xml-0",
+      "name": "Parse XML #0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $json.sitemapindex?.sitemap;\n\nconst hasNested =\n  Array.isArray(s) ? s.some(x => !!x?.loc) :\n  (s && typeof s === 'object') ? !!s.loc :\n  false;\n\nreturn [{ ...$json, hasNested }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1104, 32],
+      "id": "detect-nested-sitemaps",
+      "name": "Detect nested sitemaps"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-nested",
+              "leftValue": "={{ $json.hasNested }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1328, 32],
+      "id": "is-sitemap-index",
+      "name": "Is sitemap index?"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "sitemapindex.sitemap",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1552, -80],
+      "id": "get-all-sitemaps",
+      "name": "Get All Sitemaps"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.loc }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 10000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2096, -80],
+      "id": "get-sitemap",
+      "name": "Get Sitemap",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-data",
+              "leftValue": "={{ $json.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [2272, -80],
+      "id": "filter-valid-responses",
+      "name": "Filter Valid Responses"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [2432, -80],
+      "id": "parse-xml-1",
+      "name": "Parse XML #1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "urlset.url",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [2640, 32],
+      "id": "get-links",
+      "name": "Get Links"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => ({\n  json: {\n    site: item.json.site, \n    loc: item.json.loc,\n    lastmod: item.json.lastmod\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [736, -160],
+      "id": "clean-url-list",
+      "name": "Clean URL list"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "YOUR_DATA_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "sitemap_snapshots",
+          "cachedResultUrl": "/projects/YOUR_PROJECT_ID/datatables/YOUR_DATA_TABLE_ID"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [736, -320],
+      "id": "dt-get-snapshots",
+      "name": "DT Get Snapshots"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1024, -304],
+      "id": "merge",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const SNAPSHOT_NODE_NAME = 'DT Get Snapshots';\n\n// ---------- helpers ----------\nfunction getHostnameFromUrl(u) {\n  const s = String(u || '').trim();\n  const m = s.match(/^https?:\\/\\/([^\\/?#:]+)(?::\\d+)?/i);\n  return m ? m[1].toLowerCase() : null;\n}\n\nfunction normalizeUrl(u) {\n  return String(u || '')\n    .trim()\n    .replace(/#.*$/, '')   // drop fragments\n    .replace(/\\/+$/, '')   // remove trailing slashes\n    .toLowerCase();\n}\n\n// ---------- 1) Load previous snapshots from Data Table ----------\nconst snapshotRows = $items(SNAPSHOT_NODE_NAME) || [];\nconst previousBySite = {};\n\nfor (const r of snapshotRows) {\n  const site = String(r.json.site || '').trim().toLowerCase();\n  if (!site) continue;\n\n  let arr;\n  try {\n    arr = JSON.parse(r.json.urls_json || '[]');\n  } catch {\n    arr = [];\n  }\n\n  if (!Array.isArray(arr)) arr = [];\n  previousBySite[site] = arr.map(normalizeUrl);\n}\n\n// ---------- 2) Group current URLs by site + track fetch errors ----------\nconst currentBySite = {};\nconst skipped = [];\nconst fetchErrorSites = new Set();\n\nfor (const item of items) {\n  // Check if this item is a fetch error (from continueRegularOutput)\n  if (item.json.error || item.json.$error) {\n    const errorUrl = item.json.$request?.url || item.json.loc || '';\n    const errorSite = getHostnameFromUrl(errorUrl);\n    if (errorSite) {\n      fetchErrorSites.add(errorSite);\n    }\n    skipped.push({ reason: 'fetch_error', url: errorUrl, error: item.json.error?.message || 'Unknown error' });\n    continue;\n  }\n  \n  const locRaw = item.json.loc;\n  if (!locRaw) {\n    skipped.push({ reason: 'missing_loc', item: item.json });\n    continue;\n  }\n\n  const loc = normalizeUrl(locRaw);\n\n  const site =\n    (item.json.site && String(item.json.site).trim().toLowerCase()) ||\n    getHostnameFromUrl(loc);\n\n  if (!site) {\n    skipped.push({ reason: 'cannot_derive_site', loc: locRaw });\n    continue;\n  }\n\n  if (!/^https?:\\/\\//i.test(loc)) {\n    skipped.push({ reason: 'not_absolute_url', loc: locRaw });\n    continue;\n  }\n\n  if (!currentBySite[site]) currentBySite[site] = [];\n  currentBySite[site].push(loc);\n}\n\n// ---------- 3) Diff per site + prepare snapshot for upsert ----------\n// Skip sites with fetch errors to preserve their existing Data Table state\nconst out = [];\n\nfor (const site of Object.keys(currentBySite).sort()) {\n  if (fetchErrorSites.has(site)) {\n    continue;\n  }\n  \n  const currentRaw = currentBySite[site];\n  const currentUnique = Array.from(new Set(currentRaw)).sort();\n\n  const previous = previousBySite[site] || [];\n  const previousSet = new Set(previous);\n  const currentSet = new Set(currentUnique);\n\n  const added = currentUnique.filter(u => !previousSet.has(u));\n  const removed = previous.filter(u => !currentSet.has(u));\n\n  out.push({\n    json: {\n      site,\n      urls_json: JSON.stringify(currentUnique),\n      previousCount: previous.length,\n      isFirstRunForSite: previous.length === 0,\n      totalUrls: currentRaw.length,\n      uniqueUrls: currentUnique.length,\n      duplicateCount: currentRaw.length - currentUnique.length,\n      addedCount: added.length,\n      removedCount: removed.length,\n      added: added.slice(0, 50),\n      removed: removed.slice(0, 50),\n      _debug: {\n        dtRows: snapshotRows.length,\n        skippedCount: skipped.length,\n        skippedSample: skipped.slice(0, 5),\n        fetchErrorSites: Array.from(fetchErrorSites),\n      }\n    }\n  });\n}\n\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1248, -304],
+      "id": "changes-detected",
+      "name": "Changes detected"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "YOUR_DATA_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "sitemap_snapshots",
+          "cachedResultUrl": "/projects/YOUR_PROJECT_ID/datatables/YOUR_DATA_TABLE_ID"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "site",
+              "keyValue": "={{$json.site}}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "site": "={{$json.site}}",
+            "urls_json": "={{$json.urls_json}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "site",
+              "displayName": "site",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "urls_json",
+              "displayName": "urls_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [1472, -512],
+      "id": "dt-upsert-snapshot",
+      "name": "DT Upsert Snapshot"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Slack builder — always outputs 1 item\n * Mode: Run once for all items\n *\n * Input: items = 1 item per site from \"Changes detected\" (passed through DT Upsert)\n * Output: 1 item:\n *   {\n *     hasChanges: boolean,\n *     message: string,\n *     sitesWithAdds: number,\n *     totalAdded: number\n *   }\n */\n\nconst MAX_URLS_PER_SITE = 50;\nconst IGNORE_BASELINE = true;\n\n// ===== DOMAIN EXCLUSION LIST =====\n// Exclude your own domain if you don't want self-notifications\nconst EXCLUDE_FROM_SLACK = [\n  'www.your-own-domain.com',\n  'your-own-domain.com',\n  // Add more domains to exclude from Slack notifications here\n];\n\nconst sites = items.map(i => i.json);\n\n// Keep only sites with additions (optionally ignore baseline runs)\n// AND exclude domains we don't want in Slack\nconst withAdds = sites\n  .filter(s => (IGNORE_BASELINE ? !s.isFirstRunForSite : true))\n  .filter(s => (s.addedCount || 0) > 0)\n  .filter(s => !EXCLUDE_FROM_SLACK.includes(s.site.toLowerCase()));\n\nconst hasChanges = withAdds.length > 0;\n\nlet message = \"\";\nlet totalAdded = 0;\n\nif (hasChanges) {\n  const lines = [];\n  lines.push(\"\\ud83d\\uddfa\\ufe0f *Sitemap monitoring \\u2014 New URLs detected*\");\n  lines.push(\"\");\n\n  for (const s of withAdds) {\n    const added = Array.isArray(s.added) ? s.added : [];\n    const shown = added.slice(0, MAX_URLS_PER_SITE);\n    const remaining = (s.addedCount || added.length) - shown.length;\n\n    totalAdded += (s.addedCount || added.length);\n\n    lines.push(`\\ud83d\\udd39 *${s.site}*`);\n    lines.push(`\\u2795 Added (${s.addedCount})`);\n    lines.push(shown.map(u => `\\u2022 ${u}`).join(\"\\n\"));\n\n    if (remaining > 0) {\n      lines.push(`\\u2026and ${remaining} more`);\n    }\n\n    lines.push(\"\");\n  }\n\n  message = lines.join(\"\\n\");\n}\n\nreturn [{\n  json: {\n    hasChanges,\n    message,\n    sitesWithAdds: withAdds.length,\n    totalAdded,\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1872, -304],
+      "id": "slack-message-builder",
+      "name": "Slack message builder"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-has-changes",
+              "leftValue": "={{ $json.hasChanges }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2080, -448],
+      "id": "if-has-changes",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "your-slack-channel",
+          "mode": "name"
+        },
+        "text": "={{ $('Slack message builder').item.json.message }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "unfurl_links": true,
+          "sendAsUser": "Competitor Tracker"
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [2256, -688],
+      "id": "send-slack-message",
+      "name": "Send Slack message",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2256, -432],
+      "id": "no-op",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Domains",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DT Get Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Domains": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Clean URL list",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Sitemap Index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sitemap Index": {
+      "main": [
+        [
+          {
+            "node": "Parse XML #0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse XML #0": {
+      "main": [
+        [
+          {
+            "node": "Detect nested sitemaps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect nested sitemaps": {
+      "main": [
+        [
+          {
+            "node": "Is sitemap index?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is sitemap index?": {
+      "main": [
+        [
+          {
+            "node": "Get All Sitemaps",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Sitemaps": {
+      "main": [
+        [
+          {
+            "node": "Get Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Responses": {
+      "main": [
+        [
+          {
+            "node": "Parse XML #1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse XML #1": {
+      "main": [
+        [
+          {
+            "node": "Get Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Links": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean URL list": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DT Get Snapshots": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Changes detected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Changes detected": {
+      "main": [
+        [
+          {
+            "node": "DT Upsert Snapshot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack message builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack message builder": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send Slack message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

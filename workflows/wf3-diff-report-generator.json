@@ -1,0 +1,176 @@
+{
+  "name": "Diff Report Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "filename"
+            },
+            {
+              "name": "title"
+            },
+            {
+              "name": "content",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [432, 96],
+      "id": "start",
+      "name": "Start"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [688, 304],
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Convert the following JSON data to semantic HTML article content for a change report:\n\n{{ $json.content }}\n\n# TRANSFORMATION REQUIREMENTS\n\n**Structure Conversion:**  \n- Transform each JSON key into a semantic HTML section with the correct heading level  \n- Top-level keys become `<h2>`, nested keys become `<h3>`, and so on, maintaining logical hierarchy  \n- Preserve the original data organization and relationships, including special keys like `title`, `description`, and any diff or change blocks\n\n**Content Formatting:**  \n- Text strings \u2192 `<p>` paragraphs (split on line breaks if needed)  \n- Arrays \u2192 `<ul>` unordered lists with `<li>` items  \n- Objects \u2192 Nested `<section>` elements with subheadings  \n- URLs \u2192 Proper `<a>` tags with `href` and descriptive text  \n- Important terms \u2192 `<strong>` for emphasis, `<em>` for additional emphasis  \n- **For git diff or change blocks, use the following class names for the diff HTML structure:**  \n  - `.diff-container` for the main diff block  \n  - `.diff-header` for diff headers  \n  - `.diff-line`, `.diff-line.add`, `.diff-line.del`, `.diff-line.normal` for diff lines  \n  - `.diff-linenum`, `.diff-linenum.blank` for line numbers  \n  - `.diff-content` for the diff text  \n- **For title changes, use a two-column table with the class `.title-diff-table` and highlight previous and current values with `.title-diff-previous` and `.title-diff-current`**\n\n**HTML Requirements:**  \n- Wrap all content in `<article aria-label=\"Report Content\">`  \n- Include a `<header>` with `<h1>` for the main title (from the `title.current` or `title` key if present)  \n- Use `<section aria-labelledby=\"id\">` for each major section, referencing unique kebab-case IDs for all headings  \n- Ensure proper heading hierarchy (do not skip levels)  \n- Always use valid HTML5, with proper HTML entity encoding for special characters  \n- Do not include any CSS or JavaScript  \n- For all content except git diff/change blocks and title changes, do **not** use class attributes  \n- Output ONLY the article content (no DOCTYPE, html, head, or body tags)\n\n**Output Specifications:**  \n- Return only the HTML article content, ready for direct insertion into a template  \n- If the JSON is empty, output `<article><p>No content available</p></article>`  \n- If the JSON is malformed, output an error message in a `<p>` tag within the article\n\nGenerate the complete HTML article content now.",
+        "options": {
+          "systemMessage": "=You are a specialized JSON-to-HTML converter for change reports.  \nYour job is to transform structured JSON data\u2014including git diff information\u2014into clean, semantic, and beautifully formatted HTML content, ready to be inserted into a styled template.\n\n---\n\n### PRIMARY FUNCTION\n\nTransform JSON data into accessible, valid HTML wrapped in an `<article>` tag, using proper semantic structure and consistent formatting.  \nSupport keys such as `title`, `description`, `diff`, and any custom sections.\n\n---\n\n### STRICT OUTPUT REQUIREMENTS\n\n- Output ONLY content between `<article>` and `</article>` tags  \n- NO DOCTYPE, html, head, body, or any wrapper tags  \n- NO CSS styles or `<style>` tags  \n- NO JavaScript or script tags  \n- **For git diff or change blocks, use the following class names on the appropriate elements:**  \n  - `.diff-container` for the main diff block  \n  - `.diff-header` for diff headers  \n  - `.diff-line`, `.diff-line.add`, `.diff-line.del`, `.diff-line.normal` for diff lines  \n  - `.diff-linenum`, `.diff-linenum.blank` for line numbers  \n  - `.diff-content` for the diff text  \n- **For title changes, use a two-column table with the class `.title-diff-table` and highlight previous and current values with `.title-diff-previous` and `.title-diff-current`**  \n- For all other content, do **not** use class attributes  \n- Must be valid HTML5 that passes validation  \n\n---\n\n### JSON INTERPRETATION RULES\n\n1. **Object Keys** \u2192 Section headings (`h2`, `h3`, `h4` based on nesting depth)\n2. **String Values** \u2192 Paragraph content in `<p>` tags\n3. **Arrays** \u2192 Unordered lists (`<ul><li>`) unless context suggests ordered lists\n4. **Nested Objects** \u2192 Subsections with appropriate heading hierarchy\n5. **URLs** \u2192 Convert to `<a>` tags with `href` and descriptive text\n6. **Special Keys**:  \n   - `title` with `previous` and `current` \u2192 Render a \"Title Change\" section with a `.title-diff-table` showing both values side by side, highlighting changes\n   - `description` with `previous` and `current` \u2192 Render a \"Content Change\" section with a diff block using the required diff classes\n   - `diff`, `git_diff`, `changes` or similar \u2192 Render as a semantic section, using the required class names for the diff block and its lines\n7. **Empty/Null Values** \u2192 Skip entirely, do not create empty sections\n\n---\n\n### HTML STRUCTURE HIERARCHY\n\n```\n<article aria-label=\"Report Content\">\n  <header>\n    <h1 id=\"main-title\">[Main Title]</h1>\n  </header>\n  <section aria-labelledby=\"title-change\">\n    <h2 id=\"title-change\">Title Change</h2>\n    <table class=\"title-diff-table\">\n      <tr>\n        <th>Previous Title</th>\n        <th>Current Title</th>\n      </tr>\n      <tr>\n        <td class=\"title-diff-previous\">[Previous Title]</td>\n        <td class=\"title-diff-current\">[Current Title]</td>\n      </tr>\n    </table>\n  </section>\n  <section aria-labelledby=\"content-change\">\n    <h2 id=\"content-change\">Content Change</h2>\n    <div class=\"diff-container\">\n      <div class=\"diff-header\">[Diff Header]</div>\n      <div class=\"diff-line add\">...</div>\n      <div class=\"diff-line del\">...</div>\n      <div class=\"diff-line normal\">...</div>\n    </div>\n  </section>\n  <!-- Additional sections for other keys -->\n</article>\n```\n\n---\n\n### MANDATORY FORMATTING RULES\n\n1. **IDs**: Generate kebab-case IDs for all headings (`h1`-`h6`)\n2. **ARIA**: Include `aria-labelledby` for all sections referencing heading IDs\n3. **Text Processing**:  \n   - Escape HTML entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`)\n   - Convert line breaks to separate `<p>` tags\n   - Wrap standalone text in `<p>` tags\n4. **Links**: Auto-detect URLs and wrap in `<a href=\"url\" title=\"descriptive-title\">text</a>`\n5. **Emphasis**: Use `<strong>` for important terms, `<em>` for emphasis\n6. **Git Diff Blocks**:  \n   - If a key represents a git diff (e.g., `diff`, `git_diff`, `changes`), render as a semantic section with a heading and use the required class names for the diff block and its lines\n\n---\n\n### ERROR HANDLING\n\n- If JSON is malformed: Output error message in `<p>` tag within `<article>`\n- If empty JSON: Output `<article><p>No content available</p></article>`\n- Skip any keys with null/undefined values\n- Handle special characters properly with HTML entities\n\n---\n\n### CONSISTENCY REQUIREMENTS\n\n- Always start with `<article aria-label=\"Report Content\">`\n- Always include `<header>` with `<h1>` for main title (from `title.current` or `title` key if present)\n- Use consistent ID naming: `section-1`, `section-2`, `subsection-1-1`, etc.\n- Maintain proper heading hierarchy (do not skip levels)\n- End with closing `</article>` tag\n\n---\n\nProcess the JSON systematically and output only the HTML article content, using the required class names for git diff/change blocks and title changes.\n\n---"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [752, 96],
+      "id": "diff-checker",
+      "name": "Diff Checker",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  <title>{{ $('Start').item.json.title }}</title>\n  <style>\n    * {\n      box-sizing: border-box;\n      margin: 0;\n      padding: 0;\n    }\n\n    body {\n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;\n      line-height: 1.7;\n      color: #1a1a1a;\n      background-color: #fafafa;\n      font-size: 16px;\n      font-weight: 400;\n    }\n\n    article {\n      max-width: 900px;\n      margin: 40px auto;\n      background: #ffffff;\n      border: 1px solid #e5e5e5;\n      border-radius: 10px;\n      overflow: hidden;\n      box-shadow: 0 4px 24px #0001;\n    }\n\n    header {\n      background: #f8f8f8;\n      border-bottom: 1px solid #e5e5e5;\n      padding: 48px 40px 32px 40px;\n      text-align: center;\n    }\n\n    h1 {\n      font-size: 34px;\n      font-weight: 700;\n      color: #0a0a0a;\n      letter-spacing: -0.02em;\n      margin: 0;\n    }\n\n    h2 {\n      font-size: 22px;\n      font-weight: 600;\n      color: #0a0a0a;\n      margin: 48px 0 16px 0;\n      padding: 0 40px;\n      letter-spacing: -0.01em;\n    }\n\n    h2:first-of-type {\n      margin-top: 32px;\n    }\n\n    h3 {\n      font-size: 17px;\n      font-weight: 600;\n      color: #333333;\n      margin: 32px 0 12px 0;\n      padding: 0 40px;\n    }\n\n    section {\n      margin-bottom: 0;\n    }\n\n    section > section {\n      margin: 24px 0;\n      padding: 0 40px;\n    }\n\n    p {\n      margin: 12px 0;\n      padding: 0 40px;\n      color: #4a4a4a;\n      line-height: 1.6;\n    }\n\n    ul {\n      margin: 16px 0;\n      padding: 0 40px 0 64px;\n      list-style: none;\n    }\n\n    li {\n      margin: 8px 0;\n      color: #4a4a4a;\n      line-height: 1.6;\n      position: relative;\n    }\n\n    li::before {\n      content: \"\\2022\";\n      color: #999999;\n      position: absolute;\n      left: -16px;\n      font-weight: 600;\n    }\n\n    a {\n      color: #0066cc;\n      text-decoration: none;\n      font-weight: 500;\n    }\n\n    a:hover {\n      color: #0052a3;\n      text-decoration: underline;\n    }\n\n    strong {\n      color: #1a1a1a;\n      font-weight: 600;\n    }\n\n    em {\n      color: #1a1a1a;\n      font-style: italic;\n    }\n\n    /* --- GIT DIFF STYLES --- */\n    .diff-section {\n      margin: 32px 0;\n      padding: 0 40px;\n    }\n    .diff-container {\n      background: #f9f9f9;\n      border: 1px solid #ddd;\n      border-radius: 6px;\n      overflow: hidden;\n      width: 100%;\n      margin: 24px 0 0 0;\n      box-shadow: 0 2px 8px #0001;\n      font-family: \"Fira Mono\", \"Consolas\", monospace;\n      font-size: 15px;\n    }\n    .diff-header {\n      background: #eaeaea;\n      color: #555;\n      padding: 0.5em 1em;\n      font-size: 0.95em;\n      border-bottom: 1px solid #ddd;\n    }\n    .diff-line {\n      display: flex;\n      align-items: flex-start;\n      white-space: pre-wrap;\n      padding: 0.2em 1em;\n      transition: background 0.2s;\n    }\n    .diff-line.normal {\n      background: #fff;\n      color: #222;\n    }\n    .diff-line.add {\n      background: #e6ffed;\n      color: #22863a;\n    }\n    .diff-line.del {\n      background: #ffeef0;\n      color: #b31d28;\n    }\n    .diff-linenum {\n      width: 2.5em;\n      text-align: right;\n      color: #aaa;\n      user-select: none;\n      font-size: 0.95em;\n      padding-right: 0.5em;\n    }\n    .diff-linenum.blank {\n      color: #fff;\n    }\n    .diff-content {\n      flex: 1;\n      word-break: break-word;\n    }\n\n    /* Title diff highlight */\n    .title-diff-table {\n      width: 100%;\n      border-collapse: separate;\n      border-spacing: 0 8px;\n      margin: 24px 0 0 0;\n    }\n    .title-diff-table th, .title-diff-table td {\n      text-align: left;\n      padding: 8px 16px;\n      font-size: 17px;\n    }\n    .title-diff-table th {\n      color: #888;\n      font-weight: 500;\n      background: #f5f5f5;\n      border-radius: 4px 4px 0 0;\n    }\n    .title-diff-table td {\n      background: #f9f9f9;\n      border-radius: 0 0 4px 4px;\n    }\n    .title-diff-previous {\n      color: #b31d28;\n      background: #ffeef0;\n      font-weight: 600;\n    }\n    .title-diff-current {\n      color: #22863a;\n      background: #e6ffed;\n      font-weight: 600;\n    }\n\n    /* Last section styling */\n    section:last-child {\n      padding-bottom: 40px;\n    }\n\n    /* Responsive design */\n    @media (max-width: 900px) {\n      article {\n        max-width: 98vw;\n      }\n    }\n    @media (max-width: 768px) {\n      body {\n        font-size: 15px;\n      }\n      article {\n        margin: 20px;\n        border-radius: 6px;\n      }\n      header {\n        padding: 32px 24px 24px 24px;\n      }\n      h1 {\n        font-size: 28px;\n      }\n      h2 {\n        font-size: 18px;\n        padding: 0 24px;\n        margin: 32px 0 12px 0;\n      }\n      h3 {\n        font-size: 15px;\n        padding: 0 24px;\n        margin: 24px 0 8px 0;\n      }\n      p {\n        padding: 0 24px;\n      }\n      ul {\n        padding: 0 24px 0 48px;\n      }\n      section > section, .diff-section {\n        padding: 0 24px;\n      }\n      section:not(:last-child) {\n        padding-bottom: 24px;\n      }\n      section:last-child {\n        padding-bottom: 32px;\n      }\n      .diff-container {\n        font-size: 14px;\n      }\n    }\n    @media (max-width: 480px) {\n      article {\n        margin: 8px;\n      }\n      header {\n        padding: 20px 10px 16px 10px;\n      }\n      h1 {\n        font-size: 22px;\n      }\n      h2, h3, p {\n        padding-left: 10px;\n        padding-right: 10px;\n      }\n      ul {\n        padding: 0 10px 0 24px;\n      }\n      section > section, .diff-section {\n        padding: 0 10px;\n      }\n      .diff-container {\n        font-size: 13px;\n      }\n    }\n  </style>\n</head>\n<body>\n{{ $json.output }}\n</body>\n</html>"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [1120, 96],
+      "id": "generate-html-report",
+      "name": "Generate HTML Report"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "html-field",
+              "name": "html",
+              "value": "={{ $json.html }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1328, 96],
+      "id": "get-html-output",
+      "name": "Get HTML Output"
+    },
+    {
+      "parameters": {
+        "html_content": "={{ $json.html }}"
+      },
+      "type": "n8n-nodes-htmlcsstopdf.htmlcsstopdf",
+      "typeVersion": 1,
+      "position": [1568, 96],
+      "id": "html-to-pdf",
+      "name": "HTML to PDF",
+      "credentials": {
+        "htmlcsstopdfApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "HTML to PDF account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Diff Checker",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Diff Checker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diff Checker": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HTML Report": {
+      "main": [
+        [
+          {
+            "node": "Get HTML Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get HTML Output": {
+      "main": [
+        [
+          {
+            "node": "HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
